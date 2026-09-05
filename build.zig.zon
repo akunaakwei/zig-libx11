@@ -19,6 +19,10 @@
             .url = "https://github.com/akunaakwei/zig-libxcb/archive/dfa084eecc9739da0f9b5e474366b9c1bbab3dad.tar.gz",
             .hash = "libxcb-1.17.0-Oa0RljvOTwCYLxyfWQgDkb7IX_Sqt9_UbkxeijBRj3vb",
         },
+        .xtrans = .{
+            .url = "https://github.com/akunaakwei/zig-libxtrans/archive/2a551481640d4dc2f0202c1c77ec3685e9790a79.tar.gz",
+            .hash = "libxtrans-1.6.0-fXNvZxEIAAAi3zgJP-6xnnmTJnfl9zC78M7KrGtFD8i5",
+        },
     },
     .paths = .{
         "build.zig",

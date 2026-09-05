@@ -6,8 +6,10 @@ pub fn build(b: *std.Build) void {
     const optimize = b.standardOptimizeOption(.{});
 
     const linkage = b.option(std.builtin.LinkMode, "linkage", "Linkage type for the library") orelse .static;
-    // const loadable_i18n = b.option(bool, "loadable-i18n", "Controls loadable i18n module support") orelse false;
+    const pic = b.option(bool, "pic", "Enable PIC") orelse (if (linkage == .dynamic) true else null);
+    const loadable_i18n = b.option(bool, "loadable-i18n", "Controls loadable i18n module support") orelse false;
     // const loadable_xcursor = b.option(bool, "loadable-xcursor", "Controls loadable xcursor module support") orelse false;
+    const locale_lib_dir = b.option([]const u8, "locale-lib-dir", "Directory where locale libraries files are installed") orelse "/usr/lib/X11/locale";
     const thread_safety_constructor = b.option(bool, "thread-safety-constructor", "Controls mandatory thread safety support") orelse true;
     const launchd = b.option(bool, "launchd", "Build with support for Apple's launchd") orelse target.result.os.tag.isDarwin();
     const xthreads = b.option(bool, "xthreads", "Controls Xlib support for Multithreading") orelse true;
@@ -15,7 +17,10 @@ pub fn build(b: *std.Build) void {
     const xf86bigfont = b.option(bool, "xf86bigfont", "Controls XF86BigFont extension support") orelse true;
     const composecache = b.option(bool, "composecache", "Controls compose table cache support") orelse true;
 
-    const flags = .{""};
+    const flags = .{
+        "-DHAVE_CONFIG_H",
+        "-DXKB",
+    };
 
     const x11_dep = b.dependency("x11", .{});
 
@@ -31,6 +36,12 @@ pub fn build(b: *std.Build) void {
         .linkage = linkage,
     });
     const xcb = xcb_dep.artifact("xcb");
+
+    const xtrans_dep = b.dependency("xtrans", .{
+        .target = target,
+        .optimize = optimize,
+    });
+    const xtrans = xtrans_dep.artifact("xtrans");
 
     const config_h = AutoConfigHeaderStep.create(b, target, .{
         .style = .blank,
@@ -112,24 +123,173 @@ pub fn build(b: *std.Build) void {
         .trim_whitespace = .none,
     });
 
+    const xkb_mod = b.createModule(.{
+        .target = target,
+        .optimize = optimize,
+        .link_libc = true,
+        .pic = pic,
+    });
+    xkb_mod.linkLibrary(xorgproto);
+    xkb_mod.addIncludePath(x11_dep.path("include/X11"));
+    xkb_mod.addIncludePath(x11_dep.path("include"));
+    xkb_mod.addIncludePath(x11_dep.path("src"));
+    xkb_mod.addIncludePath(x11_dep.path("src/xlibi18n"));
+    xkb_mod.addConfigHeader(xlib_conf_h);
+    xkb_mod.addConfigHeader(config_h.config_header);
+    xkb_mod.addCMacro("_Xconst", "");
+
+    xkb_mod.addCSourceFiles(.{
+        .root = x11_dep.path("src/xkb"),
+        .files = &xkb_sources,
+        .flags = &flags,
+    });
+    const xkb = b.addLibrary(.{
+        .name = "xkb",
+        .root_module = xkb_mod,
+    });
+
+    const im_mod = b.createModule(.{
+        .target = target,
+        .optimize = optimize,
+        .link_libc = true,
+        .pic = pic,
+    });
+    im_mod.linkLibrary(xorgproto);
+    im_mod.linkLibrary(xtrans);
+    im_mod.addIncludePath(x11_dep.path("include/X11"));
+    im_mod.addIncludePath(x11_dep.path("include"));
+    im_mod.addIncludePath(x11_dep.path("src"));
+    im_mod.addIncludePath(x11_dep.path("src/xlibi18n"));
+    im_mod.addConfigHeader(xlib_conf_h);
+    im_mod.addConfigHeader(config_h.config_header);
+    im_mod.addCMacro("TRANS_CLIENT", "");
+    im_mod.addCMacro("XIM_t", "");
+    im_mod.addCSourceFiles(.{
+        .root = x11_dep.path("modules/im/ximcp"),
+        .files = &ximcp_sources,
+        .flags = &flags,
+    });
+
+    const im = b.addLibrary(.{
+        .name = "ximcp",
+        .root_module = im_mod,
+    });
+
+    const lc_mod = b.createModule(.{
+        .target = target,
+        .optimize = optimize,
+        .link_libc = true,
+        .pic = pic,
+    });
+    lc_mod.linkLibrary(xorgproto);
+    lc_mod.addIncludePath(x11_dep.path("include/X11"));
+    lc_mod.addIncludePath(x11_dep.path("include"));
+    lc_mod.addIncludePath(x11_dep.path("src"));
+    lc_mod.addIncludePath(x11_dep.path("src/xlibi18n"));
+    lc_mod.addConfigHeader(xlib_conf_h);
+    lc_mod.addConfigHeader(config_h.config_header);
+    lc_mod.addCSourceFiles(.{
+        .root = x11_dep.path("modules/lc/def"),
+        .files = &lc_def_sources,
+        .flags = &flags,
+    });
+    lc_mod.addCSourceFiles(.{
+        .root = x11_dep.path("modules/lc/gen"),
+        .files = &lc_gen_sources,
+        .flags = &flags,
+    });
+    lc_mod.addCSourceFiles(.{
+        .root = x11_dep.path("modules/lc/Utf8"),
+        .files = &lc_utf8_sources,
+        .flags = &flags,
+    });
+    const lc = b.addLibrary(.{
+        .name = "lc",
+        .root_module = lc_mod,
+    });
+
+    const om_mod = b.createModule(.{
+        .target = target,
+        .optimize = optimize,
+        .link_libc = true,
+        .pic = pic,
+    });
+    om_mod.linkLibrary(xorgproto);
+    om_mod.addIncludePath(x11_dep.path("include/X11"));
+    om_mod.addIncludePath(x11_dep.path("include"));
+    om_mod.addIncludePath(x11_dep.path("src"));
+    om_mod.addIncludePath(x11_dep.path("src/xlibi18n"));
+    om_mod.addConfigHeader(xlib_conf_h);
+    om_mod.addConfigHeader(config_h.config_header);
+    om_mod.addCSourceFiles(.{
+        .root = x11_dep.path("modules/om/generic"),
+        .files = &om_generic_sources,
+        .flags = &flags,
+    });
+    const om = b.addLibrary(.{
+        .name = "om",
+        .root_module = om_mod,
+    });
+
+    const i18n_mod = b.createModule(.{
+        .target = target,
+        .optimize = optimize,
+        .link_libc = true,
+        .pic = pic,
+    });
+    i18n_mod.linkLibrary(xorgproto);
+    i18n_mod.linkLibrary(xtrans);
+    if (!loadable_i18n) {
+        i18n_mod.linkLibrary(im);
+        i18n_mod.linkLibrary(lc);
+        i18n_mod.linkLibrary(om);
+    }
+    i18n_mod.addIncludePath(x11_dep.path("include/X11"));
+    i18n_mod.addIncludePath(x11_dep.path("include"));
+    i18n_mod.addIncludePath(x11_dep.path("src"));
+    i18n_mod.addIncludePath(x11_dep.path("src/xlibi18n"));
+    i18n_mod.addConfigHeader(xlib_conf_h);
+    i18n_mod.addConfigHeader(config_h.config_header);
+    i18n_mod.addCMacro("_Xconst", "const");
+    i18n_mod.addCMacro("XLOCALELIBDIR", b.fmt("\"{s}\"", .{locale_lib_dir}));
+
+    i18n_mod.addCSourceFiles(.{
+        .root = x11_dep.path("src/xlibi18n"),
+        .files = &i18n_sources,
+        .flags = &flags,
+    });
+    if (loadable_i18n) {
+        i18n_mod.addCSourceFiles(.{
+            .root = x11_dep.path("src/xlibi18n"),
+            .files = &i18n_dl_sources,
+            .flags = &flags,
+        });
+    }
+    const i18n = b.addLibrary(.{
+        .name = "xlibi18n",
+        .root_module = i18n_mod,
+    });
+
     const x11_mod = b.createModule(.{
         .target = target,
         .optimize = optimize,
         .link_libc = true,
-        .pic = if (linkage == .dynamic) true else null,
+        .pic = pic,
     });
     x11_mod.linkLibrary(xorgproto);
     x11_mod.linkLibrary(xcb);
+    x11_mod.linkLibrary(xkb);
+    x11_mod.linkLibrary(i18n);
     // TODO: bigfont integration
     x11_mod.addIncludePath(xcb.getEmittedIncludeTree().path(b, "xcb"));
     x11_mod.addIncludePath(x11_dep.path("include/X11"));
     x11_mod.addIncludePath(x11_dep.path("include"));
+    x11_mod.addIncludePath(x11_dep.path("src"));
     x11_mod.addIncludePath(x11_dep.path("src/xcms"));
     x11_mod.addIncludePath(x11_dep.path("src/xlibi18n"));
+    x11_mod.addIncludePath(x11_dep.path("src/xkb"));
     x11_mod.addIncludePath(ks_tables.dirname());
     x11_mod.addConfigHeader(xlib_conf_h);
-
-    x11_mod.addCMacro("HAVE_CONFIG_H", "1");
     x11_mod.addConfigHeader(config_h.config_header);
 
     if (xthreads) {
@@ -420,4 +580,116 @@ const x11_sources = .{
     "XlibAsync.c",
     "XlibInt.c",
     "Xrm.c",
+};
+
+const xkb_sources = .{
+    "XKB.c",
+    "XKBBind.c",
+    "XKBCompat.c",
+    "XKBCtrls.c",
+    "XKBCvt.c",
+    "XKBGetMap.c",
+    "XKBGetByName.c",
+    "XKBNames.c",
+    "XKBRdBuf.c",
+    "XKBSetMap.c",
+    "XKBUse.c",
+    "XKBleds.c",
+    "XKBBell.c",
+    "XKBGeom.c",
+    "XKBSetGeom.c",
+    "XKBExtDev.c",
+    "XKBList.c",
+    "XKBMisc.c",
+    "XKBMAlloc.c",
+    "XKBGAlloc.c",
+    "XKBAlloc.c",
+};
+
+const i18n_sources = .{
+    "XDefaultIMIF.c",
+    "XDefaultOMIF.c",
+    "xim_trans.c",
+    "ICWrap.c",
+    "IMWrap.c",
+    "imKStoUCS.c",
+    "lcCT.c",
+    "lcCharSet.c",
+    "lcConv.c",
+    "lcDB.c",
+    "lcDynamic.c",
+    "lcFile.c",
+    "lcGeneric.c",
+    "lcInit.c",
+    "lcPrTxt.c",
+    "lcPubWrap.c",
+    "lcPublic.c",
+    "lcRM.c",
+    "lcStd.c",
+    "lcTxtPr.c",
+    "lcUTF8.c",
+    "lcUtil.c",
+    "lcWrap.c",
+    "mbWMProps.c",
+    "mbWrap.c",
+    "utf8WMProps.c",
+    "utf8Wrap.c",
+    "wcWrap.c",
+};
+
+const i18n_dl_sources = .{
+    "XlcDL.c",
+    "XlcSL.c",
+};
+
+const ximcp_sources = .{
+    "imCallbk.c",
+    "imDefFlt.c",
+    "imDefIc.c",
+    "imDefIm.c",
+    "imDefLkup.c",
+    "imDispch.c",
+    "imEvToWire.c",
+    "imExten.c",
+    "imImSw.c",
+    "imInsClbk.c",
+    "imInt.c",
+    "imLcFlt.c",
+    "imLcGIc.c",
+    "imLcIc.c",
+    "imLcIm.c",
+    "imLcLkup.c",
+    "imLcPrs.c",
+    "imLcSIc.c",
+    "imRmAttr.c",
+    "imRm.c",
+    "imThaiFlt.c",
+    "imThaiIc.c",
+    "imThaiIm.c",
+    "imTrans.c",
+    "imTransR.c",
+    "imTrX.c",
+};
+
+const lc_def_sources = .{
+    "lcDefConv.c",
+};
+
+const lc_gen_sources = .{
+    "lcGenConv.c",
+};
+
+const lc_utf8_sources = .{
+    "lcUTF8Load.c",
+};
+
+const om_generic_sources = .{
+    "omDefault.c",
+    "omGeneric.c",
+    "omImText.c",
+    "omText.c",
+    "omTextEsc.c",
+    "omTextExt.c",
+    "omTextPer.c",
+    "omXChar.c",
 };
