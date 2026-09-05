@@ -8,7 +8,7 @@ pub fn build(b: *std.Build) void {
     const linkage = b.option(std.builtin.LinkMode, "linkage", "Linkage type for the library") orelse .static;
     const pic = b.option(bool, "pic", "Enable PIC") orelse (if (linkage == .dynamic) true else null);
     const loadable_i18n = b.option(bool, "loadable-i18n", "Controls loadable i18n module support") orelse false;
-    // const loadable_xcursor = b.option(bool, "loadable-xcursor", "Controls loadable xcursor module support") orelse false;
+    const loadable_xcursor = b.option(bool, "loadable-xcursor", "Controls loadable xcursor module support") orelse false;
     const locale_lib_dir = b.option([]const u8, "locale-lib-dir", "Directory where locale libraries files are installed") orelse "/usr/lib/X11/locale";
     const thread_safety_constructor = b.option(bool, "thread-safety-constructor", "Controls mandatory thread safety support") orelse true;
     const launchd = b.option(bool, "launchd", "Build with support for Apple's launchd") orelse target.result.os.tag.isDarwin();
@@ -47,6 +47,11 @@ pub fn build(b: *std.Build) void {
         .style = .blank,
         .include_path = "config.h",
     });
+    if (loadable_xcursor) {
+        config_h.config_header.addValues(.{
+            .USE_DYNAMIC_XCURSOR = true,
+        });
+    }
     if (thread_safety_constructor) {
         config_h.config_header.addValues(.{
             .USE_THREAD_SAFETY_CONSTRUCTOR = true,
