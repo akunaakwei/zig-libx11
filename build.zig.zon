@@ -16,8 +16,8 @@
             .hash = "xorgproto-2025.1.0-38NRV9YKAAB8_MV39Y_a1TPHc5p55a8VAmiXDAJgU3t7",
         },
         .xcb = .{
-            .url = "https://github.com/akunaakwei/zig-libxcb/archive/dfa084eecc9739da0f9b5e474366b9c1bbab3dad.tar.gz",
-            .hash = "libxcb-1.17.0-Oa0RljvOTwCYLxyfWQgDkb7IX_Sqt9_UbkxeijBRj3vb",
+            .url = "https://github.com/akunaakwei/zig-libxcb/archive/e634f2a749c504f7b233d3ddbd1d165b54526ae2.tar.gz",
+            .hash = "libxcb-1.17.0-Oa0RlvLQTwCt4l7nR9R2oOM0XkSKvy4cijGRGE8vqdZw",
         },
         .xtrans = .{
             .url = "https://github.com/akunaakwei/zig-libxtrans/archive/2a551481640d4dc2f0202c1c77ec3685e9790a79.tar.gz",
