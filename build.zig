@@ -96,13 +96,14 @@ pub fn build(b: *std.Build) void {
     config_h.addHaveFunction("USE_POLL", "&poll", &.{"poll.h"});
     config_h.addHaveFunction("HAVE_REALLOCARRAY", "&reallocarray", &.{"stdlib.h"});
 
-    const xlib_conf_h = b.addConfigHeader(.{
+    const xlib_conf_h = AutoConfigHeaderStep.create(b, target, .{
         .style = .{ .autoconf_undef = x11_dep.path("include/X11/XlibConf.h.in") },
         .include_path = "X11/XlibConf.h",
-    }, .{
-        .XTHREADS = null,
-        .XUSE_MTSAFE_API = null,
     });
+    if (xthreads) {
+        xlib_conf_h.config_header.addValues(.{ .XTHREADS = true });
+        xlib_conf_h.addHaveFunction("XUSE_MTSAFE_API", "&getpwuid_r", &.{ "sys/types.h", "pwd.h" });
+    }
 
     const makekeys_mod = b.createModule(.{
         .target = b.graph.host,
@@ -139,7 +140,7 @@ pub fn build(b: *std.Build) void {
     xkb_mod.addIncludePath(x11_dep.path("include"));
     xkb_mod.addIncludePath(x11_dep.path("src"));
     xkb_mod.addIncludePath(x11_dep.path("src/xlibi18n"));
-    xkb_mod.addConfigHeader(xlib_conf_h);
+    xkb_mod.addConfigHeader(xlib_conf_h.config_header);
     xkb_mod.addConfigHeader(config_h.config_header);
     xkb_mod.addCMacro("_Xconst", "");
 
@@ -165,7 +166,7 @@ pub fn build(b: *std.Build) void {
     im_mod.addIncludePath(x11_dep.path("include"));
     im_mod.addIncludePath(x11_dep.path("src"));
     im_mod.addIncludePath(x11_dep.path("src/xlibi18n"));
-    im_mod.addConfigHeader(xlib_conf_h);
+    im_mod.addConfigHeader(xlib_conf_h.config_header);
     im_mod.addConfigHeader(config_h.config_header);
     im_mod.addCMacro("TRANS_CLIENT", "");
     im_mod.addCMacro("XIM_t", "");
@@ -191,7 +192,7 @@ pub fn build(b: *std.Build) void {
     lc_mod.addIncludePath(x11_dep.path("include"));
     lc_mod.addIncludePath(x11_dep.path("src"));
     lc_mod.addIncludePath(x11_dep.path("src/xlibi18n"));
-    lc_mod.addConfigHeader(xlib_conf_h);
+    lc_mod.addConfigHeader(xlib_conf_h.config_header);
     lc_mod.addConfigHeader(config_h.config_header);
     lc_mod.addCSourceFiles(.{
         .root = x11_dep.path("modules/lc/def"),
@@ -224,7 +225,7 @@ pub fn build(b: *std.Build) void {
     om_mod.addIncludePath(x11_dep.path("include"));
     om_mod.addIncludePath(x11_dep.path("src"));
     om_mod.addIncludePath(x11_dep.path("src/xlibi18n"));
-    om_mod.addConfigHeader(xlib_conf_h);
+    om_mod.addConfigHeader(xlib_conf_h.config_header);
     om_mod.addConfigHeader(config_h.config_header);
     om_mod.addCSourceFiles(.{
         .root = x11_dep.path("modules/om/generic"),
@@ -253,7 +254,7 @@ pub fn build(b: *std.Build) void {
     i18n_mod.addIncludePath(x11_dep.path("include"));
     i18n_mod.addIncludePath(x11_dep.path("src"));
     i18n_mod.addIncludePath(x11_dep.path("src/xlibi18n"));
-    i18n_mod.addConfigHeader(xlib_conf_h);
+    i18n_mod.addConfigHeader(xlib_conf_h.config_header);
     i18n_mod.addConfigHeader(config_h.config_header);
     i18n_mod.addCMacro("_Xconst", "const");
     i18n_mod.addCMacro("XLOCALELIBDIR", b.fmt("\"{s}\"", .{locale_lib_dir}));
@@ -294,7 +295,7 @@ pub fn build(b: *std.Build) void {
     x11_mod.addIncludePath(x11_dep.path("src/xlibi18n"));
     x11_mod.addIncludePath(x11_dep.path("src/xkb"));
     x11_mod.addIncludePath(ks_tables.dirname());
-    x11_mod.addConfigHeader(xlib_conf_h);
+    x11_mod.addConfigHeader(xlib_conf_h.config_header);
     x11_mod.addConfigHeader(config_h.config_header);
 
     if (xthreads) {
@@ -321,7 +322,7 @@ pub fn build(b: *std.Build) void {
         .linkage = linkage,
     });
     x11_lib.installHeadersDirectory(x11_dep.path("include/X11"), "X11", .{});
-    x11_lib.installConfigHeader(xlib_conf_h);
+    x11_lib.installConfigHeader(xlib_conf_h.config_header);
     b.installArtifact(x11_lib);
 }
 
