@@ -34,6 +34,7 @@ pub fn build(b: *std.Build) void {
         .target = target,
         .optimize = optimize,
         .linkage = linkage,
+        .pic = pic,
     });
     const xcb = xcb_dep.artifact("xcb");
 
